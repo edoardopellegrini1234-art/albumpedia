@@ -1,0 +1,1 @@
+import "./globals.css"; export const metadata={title:"AlbumPedia",description:"Research engine per la storia degli album"}; export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="it"><body>{children}</body></html>}

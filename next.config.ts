@@ -1,0 +1,1 @@
+import type {NextConfig} from "next"; const config:NextConfig={images:{remotePatterns:[{protocol:"https",hostname:"coverartarchive.org"}]}}; export default config;
