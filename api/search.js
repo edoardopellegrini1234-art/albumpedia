@@ -3,12 +3,17 @@ export default async function handler(req, res) {
     const q = String(req.query.q || "").trim();
     const mbid = String(req.query.mbid || "").trim();
 
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const sleep = (ms) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+
     let lastRequest = 0;
 
-    async function mbFetch(url, attempts = 3) {
+    async function mbFetch(url, attempts = 4) {
       for (let attempt = 0; attempt < attempts; attempt++) {
-        const wait = Math.max(0, 1100 - (Date.now() - lastRequest));
+        const wait = Math.max(
+          0,
+          1200 - (Date.now() - lastRequest)
+        );
 
         if (wait > 0) {
           await sleep(wait);
@@ -29,155 +34,188 @@ export default async function handler(req, res) {
         }
 
         if (response.status === 503) {
-          await sleep(2000 * (attempt + 1));
+          await sleep(2500 * (attempt + 1));
           continue;
         }
 
-        throw new Error(`MusicBrainz HTTP ${response.status}`);
+        throw new Error(
+          `MusicBrainz HTTP ${response.status}`
+        );
       }
 
       throw new Error("MusicBrainz HTTP 503");
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // DETTAGLIO ALBUM
-    // ------------------------------------------------------------
+    // ============================================================
+
     if (mbid) {
-      const groupUrl =
-        "https://musicbrainz.org/ws/2/release-group/" +
-        encodeURIComponent(mbid) +
-        "?fmt=json&inc=artist-credits+releases";
+      /*
+        UNA SOLA richiesta:
+        cerchiamo direttamente le release appartenenti
+        al release-group richiesto e includiamo media + recordings.
+      */
 
-      const group = await mbFetch(groupUrl);
+      const url =
+        "https://musicbrainz.org/ws/2/release" +
+        "?fmt=json" +
+        "&limit=20" +
+        "&inc=media+recordings+artist-credits+labels" +
+        "&release-group=" +
+        encodeURIComponent(mbid);
 
-      const releases = Array.isArray(group.releases)
-        ? group.releases
+      const data = await mbFetch(url);
+
+      const releases = Array.isArray(data.releases)
+        ? data.releases
         : [];
 
-      // Preferiamo una release ufficiale italiana, poi una ufficiale
-      // con data, poi semplicemente la prima disponibile.
-      const official = releases.filter(r => r.status === "Official");
-
-      const italian = official.filter(r => {
-        const country = String(r.country || "").toUpperCase();
-        return country === "IT";
-      });
-
-      const pool =
-        italian.length > 0
-          ? italian
-          : official.length > 0
-          ? official
-          : releases;
-
-      pool.sort((a, b) => {
-        const da = a.date || "9999-99-99";
-        const db = b.date || "9999-99-99";
-        return da.localeCompare(db);
-      });
-
-      const release = pool[0];
-
-      if (!release || !release.id) {
+      if (!releases.length) {
         return res.status(200).json({
-          title: group.title || "",
-          artist:
-            group["artist-credit"]?.map(x => x.name).join(", ") || "",
-          date: group["first-release-date"] || "",
-          type: group["primary-type"] || "Album",
-          cover: `https://coverartarchive.org/release-group/${mbid}/front-500`,
+          mbid,
+          title: "",
+          artist: "",
+          date: "",
+          type: "Album",
+          cover:
+            `https://coverartarchive.org/release-group/${mbid}/front-500`,
           tracks: [],
           trackCount: 0,
           release: null
         });
       }
 
-      const releaseUrl =
-        "https://musicbrainz.org/ws/2/release/" +
-        encodeURIComponent(release.id) +
-        "?fmt=json&inc=media+recordings+artist-credits+labels";
+      // Preferiamo release ufficiali italiane.
+      const official = releases.filter(
+        (r) =>
+          String(r.status || "").toLowerCase() === "official"
+      );
 
-      const releaseData = await mbFetch(releaseUrl);
+      const italian = official.filter(
+        (r) =>
+          String(r.country || "").toUpperCase() === "IT"
+      );
+
+      let candidates =
+        italian.length > 0
+          ? italian
+          : official.length > 0
+          ? official
+          : releases;
+
+      // Preferiamo la release che contiene effettivamente tracce.
+      const withTracks = candidates.filter(
+        (r) =>
+          Array.isArray(r.media) &&
+          r.media.some(
+            (m) =>
+              Array.isArray(m.tracks) &&
+              m.tracks.length > 0
+          )
+      );
+
+      if (withTracks.length > 0) {
+        candidates = withTracks;
+      }
+
+      // Ordine cronologico.
+      candidates.sort((a, b) => {
+        const da = a.date || "9999-99-99";
+        const db = b.date || "9999-99-99";
+        return da.localeCompare(db);
+      });
+
+      const release = candidates[0];
 
       const tracks = [];
 
-      for (const medium of releaseData.media || []) {
+      for (const medium of release.media || []) {
         for (const track of medium.tracks || []) {
           const recording = track.recording || {};
 
           tracks.push({
-            number: track.position || tracks.length + 1,
-            title: recording.title || track.title || "",
+            number:
+              track.position ||
+              tracks.length + 1,
+
+            title:
+              recording.title ||
+              track.title ||
+              "",
+
             length:
               track.length != null
                 ? track.length
                 : recording.length != null
                 ? recording.length
                 : null,
+
             artist:
               recording["artist-credit"]
-                ?.map(x => x.name)
+                ?.map((x) => x.name)
                 .join(", ") || null
           });
         }
       }
 
-      const labels = Array.isArray(releaseData["label-info"])
-        ? releaseData["label-info"]
-            .map(x => x.label?.name)
+      const labels = Array.isArray(
+        release["label-info"]
+      )
+        ? release["label-info"]
+            .map((x) => x.label?.name)
             .filter(Boolean)
         : [];
 
+      const artist =
+        release["artist-credit"]
+          ?.map((x) => x.name)
+          .join(", ") || "";
+
       return res.status(200).json({
-        title: group.title || releaseData.title || "",
-        artist:
-          group["artist-credit"]?.map(x => x.name).join(", ") ||
-          releaseData["artist-credit"]?.map(x => x.name).join(", ") ||
-          "",
+        mbid,
+
+        title:
+          release.title || "",
+
+        artist,
+
         date:
-          group["first-release-date"] ||
-          releaseData.date ||
-          "",
-        type: group["primary-type"] || "Album",
+          release.date || "",
+
+        type: "Album",
+
         cover:
           `https://coverartarchive.org/release-group/${mbid}/front-500`,
-        mbid,
+
         trackCount: tracks.length,
+
         tracks,
+
         release: {
-          id: releaseData.id,
-          title: releaseData.title,
-          date: releaseData.date || "",
-          country: releaseData.country || "",
-          status: releaseData.status || "",
+          id: release.id,
+          title: release.title || "",
+          date: release.date || "",
+          country: release.country || "",
+          status: release.status || "",
           labels
         }
       });
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // RICERCA ALBUM
-    // ------------------------------------------------------------
+    // ============================================================
+
     if (!q) {
       return res.status(400).json({
         error: "Parametro q mancante"
       });
     }
 
-    /*
-      Facciamo UNA SOLA richiesta a MusicBrainz.
-
-      Generiamo localmente tutte le possibili divisioni:
-      "Sfera Ebbasta Rockstar"
-
-      può diventare:
-      Sfera        / Ebbasta Rockstar
-      Sfera Ebbasta / Rockstar
-
-      e le mandiamo tutte dentro un'unica query.
-    */
-
-    const words = q.split(/\s+/).filter(Boolean);
+    const words = q
+      .split(/\s+/)
+      .filter(Boolean);
 
     const escapeLucene = (value) =>
       String(value)
@@ -186,80 +224,135 @@ export default async function handler(req, res) {
 
     const clauses = [];
 
+    // Generiamo tutte le possibili divisioni
+    // artista / album senza fare richieste multiple.
+
     for (let i = 1; i < words.length; i++) {
-      const artist = words.slice(0, i).join(" ");
-      const title = words.slice(i).join(" ");
+      const artist = words
+        .slice(0, i)
+        .join(" ");
+
+      const title = words
+        .slice(i)
+        .join(" ");
 
       clauses.push(
-        `(artist:"${escapeLucene(artist)}" AND releasegroup:"${escapeLucene(title)}")`
+        `(artist:"${escapeLucene(
+          artist
+        )}" AND releasegroup:"${escapeLucene(
+          title
+        )}")`
       );
     }
 
-    // Aggiungiamo anche una ricerca libera come fallback,
-    // sempre nella STESSA richiesta.
-    clauses.push(`releasegroup:"${escapeLucene(q)}"`);
-    clauses.push(`artist:"${escapeLucene(q)}"`);
+    // Fallback.
+    clauses.push(
+      `releasegroup:"${escapeLucene(q)}"`
+    );
 
     const luceneQuery =
-      `primarytype:album AND (${clauses.join(" OR ")})`;
+      `primarytype:album AND (${clauses.join(
+        " OR "
+      )})`;
 
+    // UNA SOLA richiesta di ricerca.
     const searchUrl =
       "https://musicbrainz.org/ws/2/release-group" +
-      "?fmt=json&limit=20&inc=artist-credits" +
+      "?fmt=json" +
+      "&limit=20" +
+      "&inc=artist-credits" +
       "&query=" +
       encodeURIComponent(luceneQuery);
 
     const data = await mbFetch(searchUrl);
 
-    const groups = Array.isArray(data["release-groups"])
+    const groups = Array.isArray(
+      data["release-groups"]
+    )
       ? data["release-groups"]
       : [];
 
     const normalized = q.toLowerCase();
 
     function score(group) {
-      const title = String(group.title || "").toLowerCase();
+      const title = String(
+        group.title || ""
+      ).toLowerCase();
+
       const artist =
         group["artist-credit"]
-          ?.map(x => x.name)
+          ?.map((x) => x.name)
           .join(" ")
           .toLowerCase() || "";
 
-      let score = 0;
+      let value = 0;
 
-      if (title === normalized) score += 100;
-      if (artist === normalized) score += 50;
+      if (title === normalized) value += 100;
+      if (artist === normalized) value += 50;
 
-      const combined = `${artist} ${title}`;
+      const combined =
+        `${artist} ${title}`;
 
-      if (combined === normalized) score += 150;
-      if (normalized.includes(title) && title) score += 40;
-      if (normalized.includes(artist) && artist) score += 40;
+      if (combined === normalized) {
+        value += 150;
+      }
 
-      if (group["primary-type"] === "Album") score += 20;
+      if (
+        title &&
+        normalized.includes(title)
+      ) {
+        value += 40;
+      }
 
-      return score;
+      if (
+        artist &&
+        normalized.includes(artist)
+      ) {
+        value += 40;
+      }
+
+      if (
+        group["primary-type"] === "Album"
+      ) {
+        value += 20;
+      }
+
+      return value;
     }
 
-    groups.sort((a, b) => score(b) - score(a));
+    groups.sort(
+      (a, b) => score(b) - score(a)
+    );
 
-    const results = groups.slice(0, 10).map(group => {
-      const artist =
-        group["artist-credit"]
-          ?.map(x => x.name)
-          .join(", ") || "";
+    const results = groups
+      .slice(0, 10)
+      .map((group) => {
+        const artist =
+          group["artist-credit"]
+            ?.map((x) => x.name)
+            .join(", ") || "";
 
-      return {
-        mbid: group.id,
-        title: group.title || "",
-        artist,
-        date: group["first-release-date"] || "",
-        type: group["primary-type"] || "Album",
-        trackCount: 0,
-        cover:
-          `https://coverartarchive.org/release-group/${group.id}/front-500`
-      };
-    });
+        return {
+          mbid: group.id,
+
+          title:
+            group.title || "",
+
+          artist,
+
+          date:
+            group["first-release-date"] || "",
+
+          type:
+            group["primary-type"] ||
+            "Album",
+
+          trackCount: 0,
+
+          cover:
+            `https://coverartarchive.org/release-group/${group.id}/front-500`
+        };
+      });
 
     return res.status(200).json({
       query: q,
@@ -270,8 +363,12 @@ export default async function handler(req, res) {
     console.error(error);
 
     return res.status(500).json({
-      error: "Errore nella ricerca MusicBrainz",
-      details: error.message || String(error)
+      error:
+        "Errore nella ricerca MusicBrainz",
+
+      details:
+        error.message ||
+        String(error)
     });
   }
 }
