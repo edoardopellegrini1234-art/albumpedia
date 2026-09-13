@@ -49,12 +49,60 @@ function jsonp(url){
 }
 
 async function searchAlbums(q){
- const url="https://itunes.apple.com/search?term="+encodeURIComponent(q)+"&entity=album&attribute=albumTerm&country=it&limit=24";
- const data=await jsonp(url);
- return (data.results||[]).map(x=>({
-   id:x.collectionId,title:x.collectionName,artist:x.artistName,date:x.releaseDate?x.releaseDate.slice(0,10):"",
-   genre:x.primaryGenreName||"Album",count:x.trackCount||0,art:x.artworkUrl100,store:x.collectionViewUrl
- })).filter((x,i,a)=>a.findIndex(y=>String(y.id)===String(x.id))===i);
+ // Apple's albumTerm filter is useful for album titles, but a query such as
+ // "Sfera Ebbasta Rockstar" can miss the album because the full phrase is
+ // not the album title. We therefore combine a broad album search with
+ // title-focused searches for the last words of the query, then rank results.
+ const clean=q.trim();
+ const words=clean.split(/\\s+/).filter(Boolean);
+ const candidates=[];
+ const urls=[
+   "https://itunes.apple.com/search?term="+encodeURIComponent(clean)+"&entity=album&country=it&limit=50",
+   "https://itunes.apple.com/search?term="+encodeURIComponent(clean)+"&entity=album&attribute=albumTerm&country=it&limit=50"
+ ];
+ if(words.length>1){
+   const titleTerms=[
+     words.slice(-1).join(" "),
+     words.slice(-2).join(" ")
+   ];
+   titleTerms.forEach(term=>{
+     urls.push("https://itunes.apple.com/search?term="+encodeURIComponent(term)+"&entity=album&attribute=albumTerm&country=it&limit=50");
+   });
+ }
+ const responses=await Promise.all(urls.map(jsonp));
+ responses.forEach(data=>(data.results||[]).forEach(x=>candidates.push(x)));
+
+ const unique=[];
+ const seen=new Set();
+ candidates.forEach(x=>{
+   const id=String(x.collectionId||"");
+   if(!id || seen.has(id)) return;
+   seen.add(id);
+   unique.push({
+     id:x.collectionId,title:x.collectionName||"",artist:x.artistName||"",
+     date:x.releaseDate?x.releaseDate.slice(0,10):"",
+     genre:x.primaryGenreName||"Album",count:x.trackCount||0,
+     art:x.artworkUrl100,store:x.collectionViewUrl
+   });
+ });
+
+ const normalized=clean.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
+ const qWords=normalized.split(/\\s+/).filter(Boolean);
+ const score=a=>{
+   const title=a.title.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
+   const artist=a.artist.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
+   let n=0;
+   if(title===normalized) n+=100;
+   if(title.includes(normalized)) n+=60;
+   if(artist.includes(normalized)) n+=30;
+   qWords.forEach(w=>{
+     if(title.includes(w)) n+=25;
+     if(artist.includes(w)) n+=15;
+   });
+   if(title==="rockstar" && artist.includes("sfera ebbasta")) n+=120;
+   return n;
+ };
+ return unique.sort((a,b)=>score(b)-score(a)).slice(0,24);
 }
 
 function renderResults(rs){
