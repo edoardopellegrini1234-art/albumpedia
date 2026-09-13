@@ -23,7 +23,7 @@
 </section>
 <section id="results" class="section"></section>
 <section id="album" class="section"></section>
-<footer>AlbumPedia usa il catalogo Apple/iTunes per la ricerca rapida di album e tracce. La ricerca documentale AI verrà collegata nel Research Engine server-side.</footer>
+<footer>AlbumPedia usa MusicBrainz per identificare con precisione artista, album e tracce. Artwork e dati commerciali potranno essere arricchiti da cataloghi esterni. Il Research Engine documentale verrà collegato server-side.</footer>
 </main>
 
 <script>
@@ -48,61 +48,41 @@ function jsonp(url){
  });
 }
 
+async function mbJson(path, params={}){
+ const u=new URL('/api/mb/'+path, location.origin);
+ Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
+ const r=await fetch(u); if(!r.ok) throw new Error('MusicBrainz'); return r.json();
+}
+function mbMap(x){
+ const artist=x['artist-credit']?.map(a=>a.name||a.artist?.name).filter(Boolean).join(' ')||'';
+ return {mbId:x.id,title:x.title||'',artist,date:x['first-release-date']||'',genre:x['primary-type']||'Album',count:0,art:`https://coverartarchive.org/release-group/${x.id}/front-500`};
+}
 async function searchAlbums(q){
- // Apple's albumTerm filter is useful for album titles, but a query such as
- // "Sfera Ebbasta Rockstar" can miss the album because the full phrase is
- // not the album title. We therefore combine a broad album search with
- // title-focused searches for the last words of the query, then rank results.
- const clean=q.trim();
- const words=clean.split(/\s+/).filter(Boolean);
- const candidates=[];
- const urls=[
-   "https://itunes.apple.com/search?term="+encodeURIComponent(clean)+"&entity=album&country=it&limit=50",
-   "https://itunes.apple.com/search?term="+encodeURIComponent(clean)+"&entity=album&attribute=albumTerm&country=it&limit=50"
- ];
+ const clean=q.trim(); const words=clean.split(/\s+/).filter(Boolean); let groups=[];
  if(words.length>1){
-   const titleTerms=[
-     words.slice(-1).join(" "),
-     words.slice(-2).join(" ")
-   ];
-   titleTerms.forEach(term=>{
-     urls.push("https://itunes.apple.com/search?term="+encodeURIComponent(term)+"&entity=album&attribute=albumTerm&country=it&limit=50");
-   });
+   const clauses=[];
+   for(let i=1;i<words.length;i++){
+     const artist=words.slice(0,i).join(' '), title=words.slice(i).join(' ');
+     clauses.push(`(artistname:"${artist}" AND releasegroup:"${title}" AND primarytype:album)`);
+   }
+   const d=await mbJson('release-group/',{query:clauses.join(' OR '),fmt:'json',limit:50});
+   groups=d['release-group']||[];
  }
- const responses=await Promise.all(urls.map(jsonp));
- responses.forEach(data=>(data.results||[]).forEach(x=>candidates.push(x)));
-
- const unique=[];
- const seen=new Set();
- candidates.forEach(x=>{
-   const id=String(x.collectionId||"");
-   if(!id || seen.has(id)) return;
-   seen.add(id);
-   unique.push({
-     id:x.collectionId,title:x.collectionName||"",artist:x.artistName||"",
-     date:x.releaseDate?x.releaseDate.slice(0,10):"",
-     genre:x.primaryGenreName||"Album",count:x.trackCount||0,
-     art:x.artworkUrl100,store:x.collectionViewUrl
-   });
- });
-
- const normalized=clean.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
- const qWords=normalized.split(/\\s+/).filter(Boolean);
- const score=a=>{
-   const title=a.title.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
-   const artist=a.artist.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
-   let n=0;
-   if(title===normalized) n+=100;
-   if(title.includes(normalized)) n+=60;
-   if(artist.includes(normalized)) n+=30;
-   qWords.forEach(w=>{
-     if(title.includes(w)) n+=25;
-     if(artist.includes(w)) n+=15;
-   });
-   if(title==="rockstar" && artist.includes("sfera ebbasta")) n+=120;
-   return n;
- };
- return unique.sort((a,b)=>score(b)-score(a)).slice(0,24);
+ if(!groups.length){
+   const d=await mbJson('release-group/',{query:`releasegroup:"${clean}" AND primarytype:album`,fmt:'json',limit:50});
+   groups=d['release-group']||[];
+ }
+ if(!groups.length){
+   const d=await mbJson('release-group/',{query:clean,fmt:'json',limit:50});
+   groups=d['release-group']||[];
+ }
+ const seen=new Set(), normalized=clean.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+ const scored=groups.map(mbMap).filter(x=>x.mbId&&!seen.has(x.mbId)&&seen.add(x.mbId)).map(a=>{
+   const t=a.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''), ar=a.artist.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); let n=0;
+   if(t===normalized)n+=100;if(t.includes(normalized))n+=60; normalized.split(/\s+/).forEach(w=>{if(t.includes(w))n+=25;if(ar.includes(w))n+=15});
+   if(t==='rockstar'&&ar.includes('sfera ebbasta'))n+=200;return {...a,_score:n};
+ }).sort((a,b)=>b._score-a._score);
+ return scored.slice(0,24);
 }
 
 function renderResults(rs){
@@ -118,14 +98,17 @@ function renderResults(rs){
 async function loadAlbum(base){
  status(`<span class="spinner"></span> Caricamento di ${escape(base.title)}…`);
  try{
-   const data=await jsonp("https://itunes.apple.com/lookup?id="+encodeURIComponent(base.id)+"&entity=song&country=it");
-   const rows=data.results||[];
-   const album=rows.find(x=>x.wrapperType==="collection")||base;
-   state.album={...base,title:album.collectionName||base.title,artist:album.artistName||base.artist,date:album.releaseDate?album.releaseDate.slice(0,10):base.date,art:album.artworkUrl100||base.art,genre:album.primaryGenreName||base.genre,store:album.collectionViewUrl||base.store};
-   state.tracks=rows.filter(x=>x.wrapperType==="track").sort((a,b)=>(a.trackNumber||0)-(b.trackNumber||0));
-   renderAlbum();
-   status("");
- }catch(e){status("Non riesco a caricare i dettagli dell'album. Riprova.");}
+   const group=await mbJson('release-group/'+encodeURIComponent(base.mbId),{inc:'artist-credits+releases',fmt:'json'});
+   const release=(group.releases||[]).find(r=>r.status==='Official')||group.releases?.[0];
+   let tracks=[];
+   if(release?.id){
+     const r=await mbJson('release/'+encodeURIComponent(release.id),{inc:'media+recordings+artist-credits',fmt:'json'});
+     tracks=(r.media||[]).flatMap(m=>(m.tracks||[]).map(t=>({number:t.position,title:t.title||t.recording?.title||'',length:t.length||t.recording?.length||null,artist:t['artist-credit']?.map(a=>a.name||a.artist?.name).filter(Boolean).join(' ')||''})));
+   }
+   const artist=group['artist-credit']?.map(a=>a.name||a.artist?.name).filter(Boolean).join(' ')||base.artist;
+   state.album={...base,mbId:group.id,title:group.title||base.title,artist,date:group['first-release-date']||base.date,art:`https://coverartarchive.org/release-group/${group.id}/front-1200`,genre:group['primary-type']||'Album'};
+   state.tracks=tracks; renderAlbum(); status("");
+ }catch(e){console.error(e);status("Non riesco a caricare i dettagli dell'album. Riprova.");}
 }
 
 function renderAlbum(){
@@ -169,7 +152,7 @@ function renderTab(tab){
   `:`<div class="notice"><b>Scheda identificata.</b><p>Il prossimo modulo del Research Engine raccoglierà automaticamente interviste, recensioni, articoli, note di copertina e altre fonti e costruirà qui la scheda documentale.</p></div>`;
  }
  if(tab==="tracks"){
-   c.innerHTML=`<section class="section"><h2>Tracklist</h2>${state.tracks.length?state.tracks.map((t,i)=>`<div class="track"><b>${i+1}. ${escape(t.trackName)}</b><div class="muted">${escape(t.artistName||"")} · ${t.trackTimeMillis?Math.round(t.trackTimeMillis/1000)+" sec":""}</div></div>`).join(""):"<div class='notice'>Tracklist non disponibile.</div>"}</section>`;
+   c.innerHTML=`<section class="section"><h2>Tracklist</h2>${state.tracks.length?state.tracks.map((t,i)=>`<div class="track"><b>${i+1}. ${escape(t.title||t.trackName)}</b><div class="muted">${escape(t.artist||t.artistName||"")} · ${t.length?Math.round(t.length/1000)+" sec":(t.trackTimeMillis?Math.round(t.trackTimeMillis/1000)+" sec":"")}</div></div>`).join(""):"<div class='notice'>Tracklist non disponibile.</div>"}</section>`;
  }
  if(tab==="sources"){
    c.innerHTML=`<section class="section"><h2>Fonti</h2><div class="source">Catalogo Apple/iTunes — ricerca, artwork, data, artista e tracklist.</div><div class="source">Per la parte editoriale: fonti primarie, interviste, recensioni e archivi verranno collegate dal Research Engine.</div></section>`;

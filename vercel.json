@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/mb/:path*",
+      "destination": "https://musicbrainz.org/ws/2/:path*"
+    }
+  ]
+}
