@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AlbumPedia — La storia dietro ogni album</title>
+<style>
+:root{--bg:#09090c;--panel:#15151b;--line:#292932;--text:#f4f4f6;--muted:#a1a1ad;--accent:#fff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#242432 0,#09090c 35%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:1180px;margin:auto;padding:24px 20px 80px}.hero{padding:70px 0 36px}.eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#92929d}.hero h1{font-size:clamp(46px,8vw,88px);line-height:.9;letter-spacing:-.055em;margin:16px 0}.hero p{max-width:760px;color:#bdbdc7;font-size:18px;line-height:1.65}
+.search{display:flex;gap:10px;margin-top:28px}.search input{flex:1;background:#15151b;color:#fff;border:1px solid #383842;border-radius:14px;padding:16px;font-size:16px;outline:none}.search button,.primary{background:#fff;color:#09090c;border:0;border-radius:14px;padding:0 22px;font-weight:800;cursor:pointer}.search button{min-height:54px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}.card{background:rgba(21,21,27,.9);border:1px solid var(--line);border-radius:18px;padding:16px}.result{cursor:pointer;transition:.18s}.result:hover{transform:translateY(-2px);border-color:#50505b}.cover{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;background:#222}.muted{color:var(--muted)}.section{margin-top:42px}.section h2{font-size:28px;margin:0 0 14px}.album{display:grid;grid-template-columns:minmax(250px,360px) 1fr;gap:32px;align-items:start}.album h1{font-size:clamp(44px,7vw,76px);line-height:.92;letter-spacing:-.05em;margin:12px 0}.pill{display:inline-block;border:1px solid #3a3a45;border-radius:999px;padding:5px 9px;font-size:12px;margin:3px;color:#cfcfd7}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}.tab{background:#17171d;color:#ddd;border:1px solid #33333d;border-radius:999px;padding:9px 13px;cursor:pointer}.tab.active{background:#fff;color:#111}.content{line-height:1.75;color:#d5d5dc}.track{padding:14px 0;border-bottom:1px solid #272730}.track b{display:block;margin-bottom:4px}.source{padding:13px 0;border-bottom:1px solid #272730}.source a{color:#eee}.notice{padding:16px;border-radius:14px;background:#15151b;border:1px solid #34343d;color:#c8c8d1}.spinner{display:inline-block;width:14px;height:14px;border:2px solid #555;border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}footer{margin-top:60px;color:#70707c;font-size:13px}button:disabled{opacity:.5;cursor:not-allowed}@media(max-width:720px){.album{grid-template-columns:1fr}.search{flex-direction:column}.search button{height:52px}.hero{padding-top:35px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<section class="hero">
+<div class="eyebrow">AlbumPedia · Single File</div>
+<h1>La storia dietro<br>ogni album.</h1>
+<p>Cerca qualsiasi album, identifica la pubblicazione, recupera copertina e metadati e costruisci una scheda editoriale con contesto storico, creazione, concept, tracce, produzione, ricezione, eredità e fonti.</p>
+<form class="search" id="searchForm">
+<input id="q" placeholder="Prova: Sfera Ebbasta Rockstar" autocomplete="off">
+<button>Cerca album</button>
+</form>
+<div id="status"></div>
+</section>
+
+<section id="results" class="section"></section>
+<section id="album" class="section"></section>
+
+<footer>AlbumPedia usa MusicBrainz per l'identificazione e il Cover Art Archive per le copertine. La ricerca editoriale automatica richiede un provider AI/web search configurato.</footer>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const state={album:null,research:null};
+
+const demo={
+"summary":"Rockstar non è un concept album narrativo in senso stretto. La sua unità è soprattutto tematica: il passaggio dalla periferia milanese alla celebrità trap, con denaro, fama, eccesso e trasformazione dell'identità come nuclei ricorrenti.",
+"historical_context":"Nel 2018 la trap italiana stava passando da fenomeno di nicchia a linguaggio centrale della musica popolare. Rockstar arriva in questo momento di forte espansione dello streaming, dei social e di una nuova idea di celebrità musicale costruita anche attraverso immagine, stile e presenza digitale.",
+"creation_history":"Il progetto è strettamente legato alla collaborazione artistica tra Sfera Ebbasta e Charlie Charles e alla fase di forte crescita della scena trap italiana. La produzione punta su melodie vocali, autotune, bassi e un'estetica trap fortemente accessibile.",
+"concept_or_plot":"La 'trama' può essere letta come: periferia → successo → ricchezza → fama → eccesso → nuova identità. È una ricostruzione interpretativa, non una trama dichiarata dall'artista.",
+"meaning":"Il termine 'rockstar' funziona come nuova figura sociale: non soltanto musicista, ma personaggio pubblico che concentra status, denaro, stile, desiderio e notorietà.",
+"production":"Produzione principalmente associata a Charlie Charles, con un suono trap melodico e fortemente vocale. Gli elementi pop e la ricerca di hook memorabili contribuiscono alla capacità dell'album di uscire dal pubblico strettamente rap.",
+"cover_art":"La copertina e l'immaginario visivo vanno letti insieme al progetto: lusso, status e costruzione del personaggio pubblico diventano parte dell'identità dell'album.",
+"release":"19 gennaio 2018. 11 tracce. Universal Music / Def Jam.",
+"reception":"Rockstar rappresentò un passaggio importante nella trasformazione commerciale della trap italiana e raggiunse un pubblico molto più ampio rispetto alla scena originaria.",
+"legacy":"Il progetto è utile per studiare la normalizzazione della trap nel pop italiano e il passaggio del rapper/trapper da artista di nicchia a celebrity mainstream.",
+tracks:[
+["Rockstar","Manifesto di fama, identità e nuova posizione sociale.","interpretation"],
+["Serpenti A Sonagli","Paranoia, persone false, invidia e diffidenza.","confirmed"],
+["Cupido","Relazioni e desiderio, con apertura internazionale attraverso Quavo.","confirmed"],
+["XNX","Lato più oscuro, esplicito e trasgressivo dell'immaginario.","interpretation"],
+["Ricchi x Sempre","Ricchezza e ascesa sociale diventano parte dell'identità.","interpretation"],
+["Uber","Un oggetto della quotidianità diventa simbolo del cambiamento economico.","interpretation"],
+["Leggenda","Dalla persona alla celebrità e poi alla costruzione della leggenda.","interpretation"],
+["Bancomat","Il denaro viene presentato come elemento concreto dello status.","interpretation"],
+["Sciroppo","Immaginario trap legato a sostanze, evasione ed eccesso.","confirmed"],
+["20 Collane","Ostentazione, lusso e accumulo di simboli di status.","interpretation"],
+["Tran Tran","Chiude il percorso richiamando un immaginario già associato alla fase precedente dell'artista.","reconstructed"]
+]
+};
+
+function escape(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function cover(id,size=500){return `https://coverartarchive.org/release-group/${id}/front-${size}`}
+function showStatus(x){$("#status").innerHTML=x?`<div class="notice">${x}</div>`:""}
+
+async function musicbrainz(q){
+  const u=`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(q)}&fmt=json&limit=18`;
+  const r=await fetch(u,{headers:{"User-Agent":"AlbumPedia-single-file/1.0"}});
+  if(!r.ok)throw Error("MusicBrainz non ha risposto.");
+  const j=await r.json();
+  return (j["release-groups"]||[]).map(x=>({
+    id:x.id,title:x.title,artist:(x["artist-credit"]||[]).map(c=>c.name).join(""),
+    date:x["first-release-date"]||"",type:x["primary-type"]||"Release",score:x.score
+  }));
+}
+function renderResults(rs){
+  $("#album").innerHTML="";
+  $("#results").innerHTML=`<h2>Risultati</h2><div class="grid">${rs.map((a,i)=>`
+  <article class="card result" data-i="${i}">
+    <img class="cover" src="${cover(a.id)}" onerror="this.style.opacity='.25'" alt="">
+    <h3>${escape(a.title)}</h3><div class="muted">${escape(a.artist)} · ${escape(a.date||"data non disponibile")}</div>
+  </article>`).join("")}</div>`;
+  [...document.querySelectorAll(".result")].forEach(el=>el.onclick=()=>loadAlbum(rs[+el.dataset.i]));
+}
+async function loadAlbum(base){
+  showStatus(`<span class="spinner"></span> Caricamento scheda…`);
+  try{
+    const u=`https://musicbrainz.org/ws/2/release-group/${base.id}?inc=artists+releases+tags+genres&fmt=json`;
+    const r=await fetch(u,{headers:{"User-Agent":"AlbumPedia-single-file/1.0"}});
+    const a=await r.json();
+    state.album={...base,tags:(a.tags||[]).slice(0,10).map(x=>x.name),releases:(a.releases||[]).slice(0,12)};
+    renderAlbum();
+    showStatus("");
+  }catch(e){showStatus("Errore nel caricamento dell'album.")}
+}
+function renderAlbum(){
+ const a=state.album,isRock=a.title.toLowerCase()==="rockstar"&&a.artist.toLowerCase().includes("sfera");
+ $("#album").innerHTML=`
+ <div class="album">
+   <img class="cover" src="${cover(a.id,1200)}" onerror="this.src='${cover(a.id,500)}'" alt="">
+   <div>
+    <span class="pill">${escape(a.type)}</span>
+    <h1>${escape(a.title)}</h1><h2>${escape(a.artist)}</h2>
+    <p class="muted">${escape(a.date||"Data non disponibile")} · MusicBrainz ID ${escape(a.id)}</p>
+    ${(a.tags||[]).map(t=>`<span class="pill">${escape(t)}</span>`).join("")}
+    <div class="tabs">
+      <button class="tab active" data-tab="overview">Scheda</button>
+      <button class="tab" data-tab="tracks">Track-by-track</button>
+      <button class="tab" data-tab="sources">Fonti</button>
+      <button class="tab" data-tab="research">Research Engine</button>
+    </div>
+   </div>
+ </div>
+ <div id="tabContent"></div>`;
+ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");renderTab(b.dataset.tab,isRock)});
+ renderTab("overview",isRock);
+}
+function renderTab(tab,isRock){
+ const c=$("#tabContent");if(!c)return;
+ if(tab==="overview"){
+   if(isRock)c.innerHTML=`${section("Sintesi",demo.summary)}${section("Contesto storico",demo.historical_context)}${section("Storia della creazione",demo.creation_history)}${section("Concept / trama",demo.concept_or_plot)}${section("Significato",demo.meaning)}${section("Produzione",demo.production)}${section("Copertina",demo.cover_art)}${section("Pubblicazione",demo.release)}${section("Ricezione",demo.reception)}${section("Eredità",demo.legacy)}`;
+   else c.innerHTML=`<div class="notice">Questo album è stato identificato. La parte editoriale automatica richiede il Research Engine: puoi configurare un provider AI/web search nella sezione dedicata.</div>`;
+ }
+ if(tab==="tracks"){
+   if(isRock)c.innerHTML=`<div class="section"><h2>Track-by-track</h2>${demo.tracks.map((t,i)=>`<div class="track"><b>${i+1}. ${escape(t[0])}</b><div class="content">${escape(t[1])}</div><span class="pill">${escape(t[2])}</span></div>`).join("")}</div>`;
+   else c.innerHTML=`<div class="notice">La tracklist dettagliata viene recuperata dalle release. Per l'analisi editoriale delle singole tracce usa il Research Engine.</div>`;
+ }
+ if(tab==="sources")c.innerHTML=`<div class="section"><h2>Fonti dati</h2><div class="source">MusicBrainz — identificazione, release-group e metadati.</div><div class="source">Cover Art Archive — copertina.</div><div class="source">Research Engine — fonti giornalistiche, interviste, note di copertina e altri materiali, quando configurato.</div></div>`;
+ if(tab==="research")c.innerHTML=`<div class="section"><h2>Research Engine</h2><div class="notice"><p><b>Questa modalità richiede una chiave API.</b></p><p>Per sicurezza, una versione single-file non dovrebbe contenere permanentemente una chiave privata. Il progetto completo usa un server Next.js per mantenerla fuori dal browser.</p><p>Puoi comunque usare questa pagina come interfaccia/prototipo: copia il titolo e l'artista in un provider AI con web search e usa il prompt qui sotto.</p></div><div class="card" style="margin-top:16px"><h3>Prompt pronto</h3><pre style="white-space:pre-wrap;color:#d8d8df;line-height:1.6">${escape(`Sei il Research Engine di AlbumPedia. Ricerca in profondità l'album "${state.album.title}" di "${state.album.artist}". Usa fonti primarie quando disponibili e poi fonti secondarie autorevoli. Ricostruisci: sintesi, contesto storico, storia della creazione, concept/trama (solo se documentato; non inventare), significato, track-by-track, produzione, copertina, pubblicazione, ricezione, eredità e timeline. Per ogni affermazione importante indica fonte e URL. Distingui fatto documentato, ricostruzione e interpretazione. Segnala le informazioni controverse.`)}</pre></div></div>`;
+}
+function section(title,text){return `<section class="section"><h2>${escape(title)}</h2><div class="content">${escape(text)}</div></section>`}
+
+$("#searchForm").onsubmit=async e=>{
+ e.preventDefault();const q=$("#q").value.trim();if(!q)return;
+ showStatus(`<span class="spinner"></span> Cerco "${escape(q)}"…`);
+ try{const rs=await musicbrainz(q);if(!rs.length){showStatus("Nessun album trovato. Prova titolo + artista.");$("#results").innerHTML="";return}renderResults(rs);showStatus("")}
+ catch(err){showStatus("Impossibile collegarsi a MusicBrainz. Controlla la connessione e riprova.")}
+};
+</script>
+</body>
+</html>
