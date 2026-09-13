@@ -78,12 +78,20 @@ async function lookupAlbum(id){
 }
 
 function card(r){
-  return `<article class="card" data-id="${esc(r.collectionId)}">
-    <img src="${esc((r.artworkUrl100||"").replace("100x100","600x600"))}" alt="">
-    <h2>${esc(r.collectionName)}</h2>
-    <div class="meta">${esc(r.artistName)} · ${esc((r.releaseDate||"").slice(0,10))}${r.trackCount?" · "+esc(r.trackCount)+" tracce":""}</div>
-  </article>`;
-}
+  return (data.results||[]).map(r=>({
+  collectionId:r.mbid,
+  collectionName:r.title,
+  artistName:r.artist,
+  artworkUrl100:r.cover,
+  releaseDate:r.date,
+  trackCount:r.trackCount||0,
+  collectionType:r.type||'Album',
+  mbid:r.mbid,
+  tracks:r.tracks||[],
+  labels:r.labels||[],
+  country:r.country||"",
+  releaseMbid:r.releaseMbid||""
+}));
 
 function score(r,title,artist){
   const a=norm(r.artistName), t=norm(r.collectionName), wantT=norm(title), wantA=norm(artist);
