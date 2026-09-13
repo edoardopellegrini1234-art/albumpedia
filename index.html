@@ -5,192 +5,186 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AlbumPedia — La storia dietro ogni album</title>
 <style>
-:root{--bg:#09090c;--panel:#15151b;--line:#292932;--text:#f4f4f6;--muted:#a1a1ad}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#252535 0,#09090c 38%);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.wrap{max-width:1180px;margin:auto;padding:24px 20px 80px}.hero{padding:65px 0 35px}.eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#92929d}.hero h1{font-size:clamp(46px,8vw,88px);line-height:.9;letter-spacing:-.055em;margin:16px 0}.hero p{max-width:780px;color:#bdbdc7;font-size:18px;line-height:1.65}
-.search{display:flex;gap:10px;margin-top:28px}.search input{flex:1;background:#15151b;color:#fff;border:1px solid #383842;border-radius:14px;padding:16px;font-size:16px;outline:none}.search button,.primary{background:#fff;color:#09090c;border:0;border-radius:14px;padding:15px 22px;font-weight:800;cursor:pointer}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}.card{background:#15151b;border:1px solid var(--line);border-radius:18px;padding:16px}.result{cursor:pointer;text-align:left;color:inherit}.result:hover{border-color:#555562}.cover{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;background:#222}.muted{color:var(--muted)}.section{margin-top:42px}.section h2{font-size:28px;margin:0 0 14px}.album{display:grid;grid-template-columns:minmax(250px,360px) 1fr;gap:32px;align-items:start}.album h1{font-size:clamp(44px,7vw,76px);line-height:.92;letter-spacing:-.05em;margin:12px 0}.pill{display:inline-block;border:1px solid #3a3a45;border-radius:999px;padding:5px 9px;font-size:12px;margin:3px;color:#cfcfd7}.content{line-height:1.75;color:#d5d5dc}.track,.source{padding:14px 0;border-bottom:1px solid #272730}.notice{padding:16px;border-radius:14px;background:#15151b;border:1px solid #34343d;color:#c8c8d1}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:25px 0}.tab{background:#17171d;color:#ddd;border:1px solid #33333d;border-radius:999px;padding:9px 13px;cursor:pointer}.tab.active{background:#fff;color:#111}.spinner{display:inline-block;width:14px;height:14px;border:2px solid #555;border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}footer{margin-top:60px;color:#70707c;font-size:13px}@media(max-width:720px){.album{grid-template-columns:1fr}.search{flex-direction:column}.search button{height:52px}}
+:root{--bg:#09090c;--panel:#15151b;--line:#343440;--text:#f5f5f7;--muted:#a7a7b5;--accent:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 70% 0,#242233 0,#09090c 45%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:1180px;margin:auto;padding:48px 24px 80px}
+.eyebrow{letter-spacing:.28em;color:#9999a8;font-size:14px;text-transform:uppercase}
+h1{font-size:clamp(54px,8vw,100px);line-height:.9;letter-spacing:-.06em;margin:38px 0 34px;max-width:850px}
+.lead{font-size:clamp(20px,3vw,32px);line-height:1.45;color:#c8c8d2;max-width:900px}
+.search{display:flex;gap:12px;margin-top:48px}
+input{flex:1;background:#15151b;border:1px solid #454552;border-radius:22px;padding:23px 28px;color:white;font-size:21px;outline:none}
+button{border:0;border-radius:22px;background:white;color:#08080a;font-weight:800;font-size:18px;padding:0 34px;min-height:70px}
+.status{margin-top:16px;padding:18px 22px;border:1px solid #363641;border-radius:18px;background:#15151b;color:#c8c8d2}
+.results{margin-top:56px;display:grid;gap:22px}
+.card{background:rgba(21,21,27,.92);border:1px solid #343440;border-radius:28px;padding:28px;cursor:pointer}
+.card img{width:100%;max-width:520px;display:block;border-radius:20px;margin-bottom:22px}
+.card h2{font-size:30px;margin:0 0 8px}
+.meta{color:#a7a7b5;font-size:17px}
+.detail{margin-top:48px;background:rgba(21,21,27,.94);border:1px solid #343440;border-radius:30px;padding:30px}
+.detail img{width:min(520px,100%);border-radius:20px}
+.detail h2{font-size:46px;letter-spacing:-.04em;margin:22px 0 8px}
+.tracklist{margin-top:28px;display:grid;gap:8px}
+.track{padding:12px 0;border-bottom:1px solid #2b2b34;color:#ddd}
+.editorial{margin-top:28px;padding-top:28px;border-top:1px solid #33333d}
+.editorial h3{font-size:25px;margin:24px 0 8px}
+.editorial p{color:#c3c3ce;font-size:18px;line-height:1.6}
+.note{margin-top:70px;color:#777786;line-height:1.5}
+@media(max-width:700px){.search{display:block}.search button{width:100%;margin-top:12px}.wrap{padding-top:32px}h1{font-size:58px}}
 </style>
 </head>
 <body>
 <main class="wrap">
-<section class="hero">
 <div class="eyebrow">AlbumPedia · Online</div>
 <h1>La storia dietro<br>ogni album.</h1>
-<p>Cerca un album, apri la scheda e costruisci una vera voce enciclopedica: contesto storico, creazione, concept, significato, track-by-track, produzione, ricezione, eredità e fonti.</p>
-<form class="search" id="searchForm"><input id="q" placeholder="Prova: Sfera Ebbasta Rockstar" autocomplete="off"><button id="searchBtn">Cerca album</button></form>
-<div id="status"></div>
-</section>
-<section id="results" class="section"></section>
-<section id="album" class="section"></section>
-<footer>AlbumPedia usa MusicBrainz per identificare con precisione artista, album e tracce. Artwork e dati commerciali potranno essere arricchiti da cataloghi esterni. Il Research Engine documentale verrà collegato server-side.</footer>
+<p class="lead">Cerca un album, apri la scheda e costruisci una vera voce enciclopedica: contesto storico, creazione, concept, significato, track-by-track, produzione, ricezione, eredità e fonti.</p>
+
+<form id="searchForm" class="search">
+<input id="q" autocomplete="off" placeholder="Prova: Sfera Ebbasta Rockstar">
+<button>Cerca album</button>
+</form>
+<div id="status" class="status" hidden></div>
+<section id="results" class="results"></section>
+<section id="detail" class="detail" hidden></section>
+
+<p class="note">AlbumPedia usa un catalogo musicale pubblico per identificare album e tracce. La ricerca separa automaticamente artista e titolo quando inserisci una query come “Sfera Ebbasta Rockstar”. Il Research Engine documentale verrà collegato server-side.</p>
 </main>
 
 <script>
-const $=s=>document.querySelector(s);
-const state={album:null,tracks:[],research:null};
-
-function escape(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function art(url,size=1000){return (url||"").replace("100x100bb",""+size+"x"+size+"bb")}
-function status(x){$("#status").innerHTML=x?`<div class="notice">${x}</div>`:""}
+const $=id=>document.getElementById(id);
+const norm=s=>(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 
 function jsonp(url){
- return new Promise((resolve,reject)=>{
-   const cb="albumpedia_cb_"+Date.now()+"_"+Math.floor(Math.random()*9999);
-   const script=document.createElement("script");
-   const sep=url.includes("?")?"&":"?";
-   const timer=setTimeout(()=>{cleanup();reject(new Error("timeout"))},12000);
-   function cleanup(){clearTimeout(timer);delete window[cb];script.remove()}
-   window[cb]=(data)=>{cleanup();resolve(data)};
-   script.onerror=()=>{cleanup();reject(new Error("network"))};
-   script.src=url+sep+"callback="+cb;
-   document.body.appendChild(script);
- });
+  return new Promise((resolve,reject)=>{
+    const cb="apcb_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+    const script=document.createElement("script");
+    const timer=setTimeout(()=>{cleanup();reject(new Error("timeout"))},12000);
+    function cleanup(){clearTimeout(timer);delete window[cb];script.remove()}
+    window[cb]=data=>{cleanup();resolve(data)};
+    script.onerror=()=>{cleanup();reject(new Error("network"))};
+    script.src=url+(url.includes("?")?"&":"?")+"callback="+cb;
+    document.body.appendChild(script);
+  });
 }
 
-async function mbJson(path, params={}){
- const u=new URL('/api/mb/'+path, location.origin);
- Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
- const r=await fetch(u); if(!r.ok) throw new Error('MusicBrainz'); return r.json();
+async function appleSearch(term, attribute="artistTerm"){
+  const url="https://itunes.apple.com/search?term="+encodeURIComponent(term)+"&entity=album&attribute="+attribute+"&country=it&limit=50";
+  return jsonp(url);
 }
-function mbMap(x){
- const artist=x['artist-credit']?.map(a=>a.name||a.artist?.name).filter(Boolean).join(' ')||'';
- return {mbId:x.id,title:x.title||'',artist,date:x['first-release-date']||'',genre:x['primary-type']||'Album',count:0,art:`https://coverartarchive.org/release-group/${x.id}/front-500`};
-}
-async function searchAlbums(q){
- const clean=q.trim();
- const words=clean.split(/\s+/).filter(Boolean);
- const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
- let candidates=[];
-
- // For multi-word searches, treat the last word(s) as the album title and
- // the preceding words as the artist. This avoids the broad Lucene search
- // that was returning singles such as "Stamm fort".
- if(words.length>1){
-   for(let split=1;split<words.length;split++){
-     const artistName=words.slice(0,split).join(' ');
-     const titleName=words.slice(split).join(' ');
-     try{
-       const ad=await mbJson('artist/',{query:`artist:"${artistName}"`,fmt:'json',limit:10});
-       const artists=ad.artist||[];
-       for(const ar of artists.slice(0,3)){
-         const rd=await mbJson('release-group/',{artist:ar.id,limit:100,fmt:'json'});
-         const groups=rd['release-group']||[];
-         candidates.push(...groups.map(g=>({...g,_artistHint:ar.name,_titleQuery:titleName})));
-       }
-     }catch(e){ console.warn('artist browse failed',e); }
-   }
- }
-
- // Direct title fallback. This is deliberately title-only and still filtered
- // to albums, so singles cannot win just because the artist appears in them.
- if(!candidates.length){
-   const title=words.length>1?words.slice(-1).join(' '):clean;
-   const d=await mbJson('release-group/',{query:`releasegroup:"${title}" AND primarytype:album`,fmt:'json',limit:50});
-   candidates=d['release-group']||[];
- }
-
- const seen=new Set();
- const titleNorm=norm(words.length>1?words.slice(-1).join(' '):clean);
- const fullNorm=norm(clean);
- const scored=candidates.map(mbMap).filter(x=>x.mbId&&!seen.has(x.mbId)&&seen.add(x.mbId)).map(a=>{
-   const t=norm(a.title), ar=norm(a.artist); let score=0;
-   if(t===titleNorm) score+=300;
-   else if(titleNorm && t.includes(titleNorm)) score+=180;
-   if(fullNorm===`${ar} ${t}`) score+=500;
-   if(titleNorm.split(/\s+/).every(w=>t.includes(w))) score+=80;
-   if(words.slice(0,-1).every(w=>ar.includes(norm(w)))) score+=140;
-   if(t==='rockstar'&&ar.includes('sfera ebbasta')) score+=1000;
-   if(t==='rockstar'&&ar.includes('sfera ebbasta')) a._preferred=true;
-   return {...a,_score:score};
- }).sort((a,b)=>b._score-a._score);
-
- return scored.filter(a=>a._score>0).slice(0,24);
-}
-function renderResults(rs){
- $("#album").innerHTML="";
- $("#results").innerHTML=`<h2>Risultati</h2><div class="grid">${rs.map((a,i)=>`
- <button class="card result" data-i="${i}">
- <img class="cover" src="${escape(art(a.art))}" alt="">
- <h3>${escape(a.title)}</h3><div class="muted">${escape(a.artist)} · ${escape(a.date||"—")}</div>
- </button>`).join("")}</div>`;
- [...document.querySelectorAll(".result")].forEach(el=>el.onclick=()=>loadAlbum(rs[+el.dataset.i]));
+async function lookupAlbum(id){
+  const url="https://itunes.apple.com/lookup?id="+encodeURIComponent(id)+"&entity=song&country=it&limit=200";
+  return jsonp(url);
 }
 
-async function loadAlbum(base){
- status(`<span class="spinner"></span> Caricamento di ${escape(base.title)}…`);
- try{
-   const group=await mbJson('release-group/'+encodeURIComponent(base.mbId),{inc:'artist-credits+releases',fmt:'json'});
-   const release=(group.releases||[]).find(r=>r.status==='Official')||group.releases?.[0];
-   let tracks=[];
-   if(release?.id){
-     const r=await mbJson('release/'+encodeURIComponent(release.id),{inc:'media+recordings+artist-credits',fmt:'json'});
-     tracks=(r.media||[]).flatMap(m=>(m.tracks||[]).map(t=>({number:t.position,title:t.title||t.recording?.title||'',length:t.length||t.recording?.length||null,artist:t['artist-credit']?.map(a=>a.name||a.artist?.name).filter(Boolean).join(' ')||''})));
-   }
-   const artist=group['artist-credit']?.map(a=>a.name||a.artist?.name).filter(Boolean).join(' ')||base.artist;
-   state.album={...base,mbId:group.id,title:group.title||base.title,artist,date:group['first-release-date']||base.date,art:`https://coverartarchive.org/release-group/${group.id}/front-1200`,genre:group['primary-type']||'Album'};
-   state.tracks=tracks; renderAlbum(); status("");
- }catch(e){console.error(e);status("Non riesco a caricare i dettagli dell'album. Riprova.");}
+function card(r){
+  return `<article class="card" data-id="${esc(r.collectionId)}">
+    <img src="${esc((r.artworkUrl100||"").replace("100x100","600x600"))}" alt="">
+    <h2>${esc(r.collectionName)}</h2>
+    <div class="meta">${esc(r.artistName)} · ${esc((r.releaseDate||"").slice(0,10))}${r.trackCount?" · "+esc(r.trackCount)+" tracce":""}</div>
+  </article>`;
 }
 
-function renderAlbum(){
- const a=state.album;
- $("#album").innerHTML=`
- <div class="album">
-  <img class="cover" src="${escape(art(a.art,1200))}" alt="">
-  <div>
-   <span class="pill">${escape(a.genre||"Album")}</span>
-   <h1>${escape(a.title)}</h1>
-   <h2>${escape(a.artist)}</h2>
-   <p class="muted">${escape(a.date||"Data non disponibile")} · ${state.tracks.length} tracce</p>
-   <div class="tabs">
-    <button class="tab active" data-tab="overview">Scheda</button>
-    <button class="tab" data-tab="tracks">Tracklist</button>
-    <button class="tab" data-tab="research">Research Engine</button>
-    <button class="tab" data-tab="sources">Fonti</button>
-   </div>
-  </div>
- </div>
- <div id="tabContent"></div>`;
- document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");renderTab(b.dataset.tab)});
- renderTab("overview");
+function score(r,title,artist){
+  const a=norm(r.artistName), t=norm(r.collectionName), wantT=norm(title), wantA=norm(artist);
+  let s=0;
+  if(a===wantA)s+=100;
+  if(t===wantT)s+=100;
+  if(t.includes(wantT))s+=35;
+  if(a.includes(wantA))s+=25;
+  if(r.collectionType==="Album")s+=15;
+  return s;
 }
 
-function section(t,c){return `<section class="section"><h2>${escape(t)}</h2><div class="content">${c}</div></section>`}
+async function findAlbums(raw){
+  const text=raw.trim();
+  const tokens=text.split(/\s+/).filter(Boolean);
+  if(tokens.length<2){
+    const d=await appleSearch(text,"albumTerm");
+    return (d.results||[]).filter(r=>r.collectionType==="Album").slice(0,20);
+  }
 
-function renderTab(tab){
- const c=$("#tabContent"),a=state.album;
- if(tab==="overview"){
-  const rock=a.title.toLowerCase()==="rockstar"&&a.artist.toLowerCase().includes("sfera");
-  c.innerHTML=rock?`
-   ${section("Sintesi","Rockstar non è un concept album narrativo in senso stretto. La sua unità è soprattutto tematica: il passaggio dalla periferia milanese alla celebrità trap, con denaro, fama, eccesso e trasformazione dell'identità come nuclei ricorrenti.")}
-   ${section("Contesto storico","Nel 2018 la trap italiana passava da fenomeno di nicchia a linguaggio centrale della musica popolare, in un periodo segnato dalla crescita dello streaming, dei social e di una nuova forma di celebrità musicale.")}
-   ${section("Storia della creazione","Il progetto è strettamente legato alla collaborazione tra Sfera Ebbasta e Charlie Charles e alla fase di forte crescita della scena trap italiana.")}
-   ${section("Concept / trama","La lettura tematica può essere ricostruita come: periferia → successo → ricchezza → fama → eccesso → nuova identità. È una ricostruzione interpretativa, non una trama dichiarata dall'artista.")}
-   ${section("Produzione","Trap melodica, autotune, bassi e hook accessibili caratterizzano il progetto; la produzione è fortemente associata alla collaborazione con Charlie Charles.")}
-   ${section("Pubblicazione","19 gennaio 2018 · 11 tracce · Universal Music / Def Jam.")}
-   ${section("Ricezione","Rockstar rappresentò un passaggio importante nella trasformazione commerciale della trap italiana e nella sua apertura al pubblico mainstream.")}
-   ${section("Eredità","Il progetto è particolarmente utile per studiare la normalizzazione della trap nel pop italiano e la trasformazione del trapper in figura mainstream.")}
-  `:`<div class="notice"><b>Scheda identificata.</b><p>Il prossimo modulo del Research Engine raccoglierà automaticamente interviste, recensioni, articoli, note di copertina e altre fonti e costruirà qui la scheda documentale.</p></div>`;
- }
- if(tab==="tracks"){
-   c.innerHTML=`<section class="section"><h2>Tracklist</h2>${state.tracks.length?state.tracks.map((t,i)=>`<div class="track"><b>${i+1}. ${escape(t.title||t.trackName)}</b><div class="muted">${escape(t.artist||t.artistName||"")} · ${t.length?Math.round(t.length/1000)+" sec":(t.trackTimeMillis?Math.round(t.trackTimeMillis/1000)+" sec":"")}</div></div>`).join(""):"<div class='notice'>Tracklist non disponibile.</div>"}</section>`;
- }
- if(tab==="sources"){
-   c.innerHTML=`<section class="section"><h2>Fonti</h2><div class="source">Catalogo Apple/iTunes — ricerca, artwork, data, artista e tracklist.</div><div class="source">Per la parte editoriale: fonti primarie, interviste, recensioni e archivi verranno collegate dal Research Engine.</div></section>`;
- }
- if(tab==="research"){
-   c.innerHTML=`<section class="section"><h2>Research Engine</h2><div class="notice"><b>La ricerca automatica è il prossimo modulo.</b><p>AlbumPedia identificherà l'album e poi raccoglierà fonti sul web, separando fatti documentati, ricostruzioni e interpretazioni.</p><p><b>Album selezionato:</b> ${escape(a.artist)} — ${escape(a.title)}</p></div></section>`;
- }
+  // Try every possible artist/title split in parallel.
+  const jobs=[];
+  for(let i=1;i<tokens.length;i++){
+    const artist=tokens.slice(0,i).join(" ");
+    const title=tokens.slice(i).join(" ");
+    jobs.push(appleSearch(artist,"artistTerm").then(d=>({artist,title,results:d.results||[]})).catch(()=>({artist,title,results:[]})));
+  }
+  const sets=await Promise.all(jobs);
+  const matches=[];
+  for(const set of sets){
+    for(const r of set.results){
+      if(r.collectionType!=="Album") continue;
+      const ar=norm(r.artistName), at=norm(set.artist), tt=norm(r.collectionName), want=norm(set.title);
+      const artistOK=ar===at || ar.includes(at) || at.includes(ar);
+      const titleOK=tt===want || tt.includes(want) || want.includes(tt);
+      if(artistOK && titleOK) matches.push(r);
+    }
+  }
+  const unique=new Map();
+  for(const r of matches) unique.set(r.collectionId,r);
+  let out=[...unique.values()];
+  out.sort((a,b)=>score(b,text.split(" ").slice(-1)[0],text)-score(a,text.split(" ").slice(-1)[0],text));
+  if(out.length) return out.slice(0,12);
+
+  // Fallback: broad album search, but rank exact title/artist matches.
+  const d=await appleSearch(text,"albumTerm");
+  return (d.results||[]).filter(r=>r.collectionType==="Album").sort((a,b)=>score(b,text,text)-score(a,text,text)).slice(0,12);
 }
 
-$("#searchForm").onsubmit=async e=>{
- e.preventDefault();const q=$("#q").value.trim();if(!q)return;
- $("#searchBtn").disabled=true;status(`<span class="spinner"></span> Cerco "${escape(q)}"…`);
- try{const rs=await searchAlbums(q);if(!rs.length){status("Nessun album trovato. Prova titolo + artista.");$("#results").innerHTML="";return}renderResults(rs);status("")}
- catch(e){status("La ricerca non è riuscita. Riprova: il catalogo musicale potrebbe essere temporaneamente non disponibile.")}
- finally{$("#searchBtn").disabled=false}
-};
+function renderDetail(r,tracks){
+  const cover=(r.artworkUrl100||"").replace("100x100","1000x1000");
+  $("detail").hidden=false;
+  $("detail").innerHTML=`
+    <img src="${esc(cover)}" alt="Copertina di ${esc(r.collectionName)}">
+    <h2>${esc(r.collectionName)}</h2>
+    <div class="meta">${esc(r.artistName)} · ${esc((r.releaseDate||"").slice(0,10))} · ${esc(r.primaryGenreName||"Musica")}</div>
+    <div class="tracklist">
+      ${tracks.map((t,i)=>`<div class="track"><strong>${i+1}. ${esc(t.trackName||"")}</strong>${t.trackTimeMillis?` <span class="meta">· ${Math.round(t.trackTimeMillis/60000)}:${String(Math.floor((t.trackTimeMillis%60000)/1000)).padStart(2,"0")}</span>`:""}</div>`).join("")}
+    </div>
+    ${norm(r.artistName)==="sfera ebbasta" && norm(r.collectionName)==="rockstar" ? `
+    <div class="editorial">
+      <h3>Rockstar — scheda editoriale</h3>
+      <p><strong>Identità.</strong> Album di Sfera Ebbasta pubblicato nel 2018, centrale nella trasformazione della trap italiana da fenomeno di nicchia a linguaggio pop-mainstream.</p>
+      <p><strong>Contesto.</strong> La lettura di AlbumPedia considera il disco come un passaggio dalla periferia alla celebrità: successo, denaro, immagine, e il nuovo ruolo pubblico del trapper.</p>
+      <p><strong>Nota metodologica.</strong> Questa sezione è un'interpretazione editoriale; le future sezioni documentarie distingueranno fatti, fonti multiple e interpretazioni.</p>
+    </div>`:""}
+  `;
+  $("detail").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+$("searchForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const q=$("q").value.trim();
+  if(!q)return;
+  $("status").hidden=false;
+  $("status").textContent="Ricerca dell’album…";
+  $("results").innerHTML="";
+  $("detail").hidden=true;
+  try{
+    const albums=await findAlbums(q);
+    if(!albums.length){
+      $("status").textContent="Nessun album trovato. Prova con artista + titolo, per esempio “Sfera Ebbasta Rockstar”.";
+      return;
+    }
+    $("status").textContent=`Trovati ${albums.length} album.`;
+    $("results").innerHTML=albums.map(card).join("");
+    [...document.querySelectorAll(".card")].forEach(el=>el.addEventListener("click",async()=>{
+      const id=el.dataset.id;
+      $("status").textContent="Caricamento tracklist…";
+      try{
+        const d=await lookupAlbum(id);
+        const album=d.results?.find(x=>x.collectionId==id)||albums.find(x=>x.collectionId==id);
+        const tracks=(d.results||[]).filter(x=>x.wrapperType==="track" && x.kind==="song").sort((a,b)=>(a.trackNumber||0)-(b.trackNumber||0));
+        renderDetail(album,tracks);
+        $("status").textContent="Album caricato.";
+      }catch(err){$("status").textContent="Album trovato, ma la tracklist non è temporaneamente disponibile."}
+    }));
+  }catch(err){
+    $("status").textContent="La ricerca non è riuscita. Riprova tra qualche secondo.";
+  }
+});
 </script>
 </body>
 </html>
