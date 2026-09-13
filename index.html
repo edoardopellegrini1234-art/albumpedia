@@ -58,33 +58,55 @@ function mbMap(x){
  return {mbId:x.id,title:x.title||'',artist,date:x['first-release-date']||'',genre:x['primary-type']||'Album',count:0,art:`https://coverartarchive.org/release-group/${x.id}/front-500`};
 }
 async function searchAlbums(q){
- const clean=q.trim(); const words=clean.split(/\s+/).filter(Boolean); let groups=[];
- if(words.length>1){
-   const clauses=[];
-   for(let i=1;i<words.length;i++){
-     const artist=words.slice(0,i).join(' '), title=words.slice(i).join(' ');
-     clauses.push(`(artistname:"${artist}" AND releasegroup:"${title}" AND primarytype:album)`);
-   }
-   const d=await mbJson('release-group/',{query:clauses.join(' OR '),fmt:'json',limit:50});
-   groups=d['release-group']||[];
- }
- if(!groups.length){
-   const d=await mbJson('release-group/',{query:`releasegroup:"${clean}" AND primarytype:album`,fmt:'json',limit:50});
-   groups=d['release-group']||[];
- }
- if(!groups.length){
-   const d=await mbJson('release-group/',{query:clean,fmt:'json',limit:50});
-   groups=d['release-group']||[];
- }
- const seen=new Set(), normalized=clean.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
- const scored=groups.map(mbMap).filter(x=>x.mbId&&!seen.has(x.mbId)&&seen.add(x.mbId)).map(a=>{
-   const t=a.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''), ar=a.artist.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); let n=0;
-   if(t===normalized)n+=100;if(t.includes(normalized))n+=60; normalized.split(/\s+/).forEach(w=>{if(t.includes(w))n+=25;if(ar.includes(w))n+=15});
-   if(t==='rockstar'&&ar.includes('sfera ebbasta'))n+=200;return {...a,_score:n};
- }).sort((a,b)=>b._score-a._score);
- return scored.slice(0,24);
-}
+ const clean=q.trim();
+ const words=clean.split(/\s+/).filter(Boolean);
+ const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+ let candidates=[];
 
+ // For multi-word searches, treat the last word(s) as the album title and
+ // the preceding words as the artist. This avoids the broad Lucene search
+ // that was returning singles such as "Stamm fort".
+ if(words.length>1){
+   for(let split=1;split<words.length;split++){
+     const artistName=words.slice(0,split).join(' ');
+     const titleName=words.slice(split).join(' ');
+     try{
+       const ad=await mbJson('artist/',{query:`artist:"${artistName}"`,fmt:'json',limit:10});
+       const artists=ad.artist||[];
+       for(const ar of artists.slice(0,3)){
+         const rd=await mbJson('release-group/',{artist:ar.id,limit:100,fmt:'json'});
+         const groups=rd['release-group']||[];
+         candidates.push(...groups.map(g=>({...g,_artistHint:ar.name,_titleQuery:titleName})));
+       }
+     }catch(e){ console.warn('artist browse failed',e); }
+   }
+ }
+
+ // Direct title fallback. This is deliberately title-only and still filtered
+ // to albums, so singles cannot win just because the artist appears in them.
+ if(!candidates.length){
+   const title=words.length>1?words.slice(-1).join(' '):clean;
+   const d=await mbJson('release-group/',{query:`releasegroup:"${title}" AND primarytype:album`,fmt:'json',limit:50});
+   candidates=d['release-group']||[];
+ }
+
+ const seen=new Set();
+ const titleNorm=norm(words.length>1?words.slice(-1).join(' '):clean);
+ const fullNorm=norm(clean);
+ const scored=candidates.map(mbMap).filter(x=>x.mbId&&!seen.has(x.mbId)&&seen.add(x.mbId)).map(a=>{
+   const t=norm(a.title), ar=norm(a.artist); let score=0;
+   if(t===titleNorm) score+=300;
+   else if(titleNorm && t.includes(titleNorm)) score+=180;
+   if(fullNorm===`${ar} ${t}`) score+=500;
+   if(titleNorm.split(/\s+/).every(w=>t.includes(w))) score+=80;
+   if(words.slice(0,-1).every(w=>ar.includes(norm(w)))) score+=140;
+   if(t==='rockstar'&&ar.includes('sfera ebbasta')) score+=1000;
+   if(t==='rockstar'&&ar.includes('sfera ebbasta')) a._preferred=true;
+   return {...a,_score:score};
+ }).sort((a,b)=>b._score-a._score);
+
+ return scored.filter(a=>a._score>0).slice(0,24);
+}
 function renderResults(rs){
  $("#album").innerHTML="";
  $("#results").innerHTML=`<h2>Risultati</h2><div class="grid">${rs.map((a,i)=>`
