@@ -3,9 +3,7 @@ export default async function handler(req, res) {
     const q = String(req.query.q || "").trim();
 
     if (!q) {
-      return res.status(400).json({
-        error: "Parametro q mancante"
-      });
+      return res.status(400).json({ error: "Parametro q mancante" });
     }
 
     const normalize = (s) =>
@@ -16,18 +14,39 @@ export default async function handler(req, res) {
         .replace(/[^a-z0-9]+/g, " ")
         .trim();
 
-    const mbFetch = async (url) => {
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "AlbumPedia/1.0 (albumpedia-577b.vercel.app)"
-        }
-      });
+    const sleep = (ms) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
 
-      if (!response.ok) {
-        throw new Error(`MusicBrainz HTTP ${response.status}`);
+    let lastRequest = 0;
+
+    const mbFetch = async (url) => {
+      const wait = 1100 - (Date.now() - lastRequest);
+
+      if (wait > 0) {
+        await sleep(wait);
       }
 
-      return response.json();
+      lastRequest = Date.now();
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const response = await fetch(url, {
+          headers: {
+            "User-Agent":
+              "AlbumPedia/1.0 (albumpedia-577b.vercel.app)"
+          }
+        });
+
+        if (response.ok) {
+          return response.json();
+        }
+
+        if (response.status === 503 && attempt < 2) {
+          await sleep(2000 * (attempt + 1));
+          continue;
+        }
+
+        throw new Error(`MusicBrainz HTTP ${response.status}`);
+      }
     };
 
     const words = q.split(/\s+/);
@@ -44,23 +63,20 @@ export default async function handler(req, res) {
 
     for (const candidate of candidates) {
 
-      // 1. Trova l'artista
+      // Trova artista
       const artistUrl =
         "https://musicbrainz.org/ws/2/artist/?" +
         new URLSearchParams({
           query: `artist:"${candidate.artist}"`,
           fmt: "json",
-          limit: "5"
+          limit: "3"
         });
 
       const artistData = await mbFetch(artistUrl);
 
       const artists = (artistData.artists || []).sort((a, b) => {
-        const ae =
-          normalize(a.name) === normalize(candidate.artist);
-        const be =
-          normalize(b.name) === normalize(candidate.artist);
-
+        const ae = normalize(a.name) === normalize(candidate.artist);
+        const be = normalize(b.name) === normalize(candidate.artist);
         return Number(be) - Number(ae);
       });
 
@@ -68,7 +84,7 @@ export default async function handler(req, res) {
 
       if (!artist) continue;
 
-      // 2. Trova il release-group dell'album
+      // Cerca direttamente il release-group
       const groupUrl =
         "https://musicbrainz.org/ws/2/release-group/?" +
         new URLSearchParams({
@@ -83,33 +99,31 @@ export default async function handler(req, res) {
       const groups = groupData["release-groups"] || [];
 
       const exact = groups.find(
-        (g) =>
-          normalize(g.title) === normalize(candidate.title)
+        (g) => normalize(g.title) === normalize(candidate.title)
       );
 
       if (!exact) continue;
 
-      // 3. Trova le release reali appartenenti al release-group
-      const releaseUrl =
-        "https://musicbrainz.org/ws/2/release/?" +
+      // Un'unica richiesta per ottenere le release associate
+      const lookupUrl =
+        "https://musicbrainz.org/ws/2/release-group/" +
+        exact.id +
+        "?" +
         new URLSearchParams({
-          "release-group": exact.id,
-          fmt: "json",
-          limit: "100"
+          inc: "releases",
+          fmt: "json"
         });
 
-      const releaseData = await mbFetch(releaseUrl);
+      const groupDetail = await mbFetch(lookupUrl);
 
-      const releases = releaseData.releases || [];
+      const releases = groupDetail.releases || [];
 
-      // Preferiamo release ufficiali con tracce
-      const orderedReleases = [...releases].sort((a, b) => {
-        const aOfficial = a.status === "Official" ? 1 : 0;
-        const bOfficial = b.status === "Official" ? 1 : 0;
+      // Preferisci release ufficiali
+      releases.sort((a, b) => {
+        const ao = a.status === "Official" ? 1 : 0;
+        const bo = b.status === "Official" ? 1 : 0;
 
-        if (aOfficial !== bOfficial) {
-          return bOfficial - aOfficial;
-        }
+        if (ao !== bo) return bo - ao;
 
         return String(a.date || "").localeCompare(
           String(b.date || "")
@@ -118,8 +132,8 @@ export default async function handler(req, res) {
 
       let chosen = null;
 
-      // 4. Apriamo le release una per una finché troviamo una tracklist
-      for (const release of orderedReleases) {
+      // Controlla al massimo 3 release.
+      for (const release of releases.slice(0, 3)) {
 
         const detailUrl =
           "https://musicbrainz.org/ws/2/release/" +
@@ -132,19 +146,25 @@ export default async function handler(req, res) {
 
         const detail = await mbFetch(detailUrl);
 
-        const media = detail.media || [];
-
-        const tracks = media.flatMap((medium) =>
+        const tracks = (detail.media || []).flatMap((medium) =>
           (medium.tracks || []).map((track) => ({
             position: track.position,
             number: track.number,
-            title: track.title || track.recording?.title || "",
-            length: track.length || track.recording?.length || null,
+            title:
+              track.title ||
+              track.recording?.title ||
+              "",
+            length:
+              track.length ||
+              track.recording?.length ||
+              null,
             artists:
               (track["artist-credit"] ||
                 track.recording?.["artist-credit"] ||
                 [])
-                .map((a) => a.name || a.artist?.name)
+                .map(
+                  (a) => a.name || a.artist?.name
+                )
                 .filter(Boolean)
                 .join(", ")
           }))
@@ -159,69 +179,31 @@ export default async function handler(req, res) {
         }
       }
 
-      // 5. Restituisci album + tracklist
-      if (chosen) {
-        const detail = chosen.detail;
+      const result = {
+        mbid: exact.id,
+        title: exact.title,
+        artist: artist.name,
+        artistMbid: artist.id,
+        date: exact["first-release-date"] || "",
+        type: exact["primary-type"] || "Album",
+        cover:
+          `https://coverartarchive.org/release-group/${exact.id}/front-500`,
+        trackCount: chosen ? chosen.tracks.length : 0,
+        tracks: chosen ? chosen.tracks : []
+      };
 
-        const labels = (detail.labels || [])
+      if (chosen) {
+        result.releaseMbid = chosen.detail.id;
+        result.country = chosen.detail.country || "";
+        result.status = chosen.detail.status || "";
+        result.labels = (chosen.detail.labels || [])
           .map((x) => x.label?.name)
           .filter(Boolean);
-
-        return res.status(200).json({
-          query: q,
-
-          results: [
-            {
-              mbid: exact.id,
-              title: exact.title,
-              artist: artist.name,
-              artistMbid: artist.id,
-              date:
-                exact["first-release-date"] ||
-                detail.date ||
-                "",
-              type:
-                exact["primary-type"] ||
-                "Album",
-
-              cover:
-                `https://coverartarchive.org/release-group/${exact.id}/front-500`,
-
-              releaseMbid: detail.id,
-
-              country: detail.country || "",
-
-              status: detail.status || "",
-
-              labels,
-
-              trackCount: chosen.tracks.length,
-
-              tracks: chosen.tracks
-            }
-          ]
-        });
       }
 
-      // Se non abbiamo trovato una release con tracce,
-      // restituiamo comunque l'album.
       return res.status(200).json({
         query: q,
-
-        results: [
-          {
-            mbid: exact.id,
-            title: exact.title,
-            artist: artist.name,
-            artistMbid: artist.id,
-            date: exact["first-release-date"] || "",
-            type: exact["primary-type"] || "Album",
-            cover:
-              `https://coverartarchive.org/release-group/${exact.id}/front-500`,
-            trackCount: 0,
-            tracks: []
-          }
-        ]
+        results: [result]
       });
     }
 
