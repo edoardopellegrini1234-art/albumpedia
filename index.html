@@ -174,7 +174,8 @@ $("searchForm").addEventListener("submit",async e=>{
       if(album){
         $("status").textContent="Caricamento tracklist…";
         try{
-          const response=await fetch('/api/search?q='+encodeURIComponent(album.artistName+' '+album.collectionName));
+          await new Promise(resolve=>setTimeout(resolve,1500));
+const response=await fetch('/api/search?mbid='+encodeURIComponent(album.mbid||album.collectionId));
           if(!response.ok) throw new Error('Dettaglio non disponibile');
           const data=await response.json();
           renderDetail(album,data);
