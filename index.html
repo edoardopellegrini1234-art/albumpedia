@@ -97,40 +97,19 @@ function score(r,title,artist){
 }
 
 async function findAlbums(raw){
-  const text=raw.trim();
-  const tokens=text.split(/\s+/).filter(Boolean);
-  if(tokens.length<2){
-    const d=await appleSearch(text,"albumTerm");
-    return (d.results||[]).filter(r=>r.collectionType==="Album").slice(0,20);
-  }
-
-  // Try every possible artist/title split in parallel.
-  const jobs=[];
-  for(let i=1;i<tokens.length;i++){
-    const artist=tokens.slice(0,i).join(" ");
-    const title=tokens.slice(i).join(" ");
-    jobs.push(appleSearch(artist,"artistTerm").then(d=>({artist,title,results:d.results||[]})).catch(()=>({artist,title,results:[]})));
-  }
-  const sets=await Promise.all(jobs);
-  const matches=[];
-  for(const set of sets){
-    for(const r of set.results){
-      if(r.collectionType!=="Album") continue;
-      const ar=norm(r.artistName), at=norm(set.artist), tt=norm(r.collectionName), want=norm(set.title);
-      const artistOK=ar===at || ar.includes(at) || at.includes(ar);
-      const titleOK=tt===want || tt.includes(want) || want.includes(tt);
-      if(artistOK && titleOK) matches.push(r);
-    }
-  }
-  const unique=new Map();
-  for(const r of matches) unique.set(r.collectionId,r);
-  let out=[...unique.values()];
-  out.sort((a,b)=>score(b,text.split(" ").slice(-1)[0],text)-score(a,text.split(" ").slice(-1)[0],text));
-  if(out.length) return out.slice(0,12);
-
-  // Fallback: broad album search, but rank exact title/artist matches.
-  const d=await appleSearch(text,"albumTerm");
-  return (d.results||[]).filter(r=>r.collectionType==="Album").sort((a,b)=>score(b,text,text)-score(a,text,text)).slice(0,12);
+  const response=await fetch('/api/search?q='+encodeURIComponent(raw.trim()));
+  if(!response.ok) throw new Error('Ricerca API non disponibile');
+  const data=await response.json();
+  return (data.results||[]).map(r=>({
+    collectionId:r.mbid,
+    collectionName:r.title,
+    artistName:r.artist,
+    artworkUrl100:r.cover,
+    releaseDate:r.date,
+    trackCount:r.trackCount||0,
+    collectionType:r.type||'Album',
+    mbid:r.mbid
+  }));
 }
 
 function renderDetail(r,tracks){
@@ -172,14 +151,11 @@ $("searchForm").addEventListener("submit",async e=>{
     $("results").innerHTML=albums.map(card).join("");
     [...document.querySelectorAll(".card")].forEach(el=>el.addEventListener("click",async()=>{
       const id=el.dataset.id;
-      $("status").textContent="Caricamento tracklist…";
-      try{
-        const d=await lookupAlbum(id);
-        const album=d.results?.find(x=>x.collectionId==id)||albums.find(x=>x.collectionId==id);
-        const tracks=(d.results||[]).filter(x=>x.wrapperType==="track" && x.kind==="song").sort((a,b)=>(a.trackNumber||0)-(b.trackNumber||0));
-        renderDetail(album,tracks);
+      const album=albums.find(x=>x.collectionId==id);
+      if(album){
+        renderDetail(album,[]);
         $("status").textContent="Album caricato.";
-      }catch(err){$("status").textContent="Album trovato, ma la tracklist non è temporaneamente disponibile."}
+      }
     }));
   }catch(err){
     $("status").textContent="La ricerca non è riuscita. Riprova tra qualche secondo.";
