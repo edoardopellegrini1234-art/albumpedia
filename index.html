@@ -54,7 +54,7 @@ async function searchAlbums(q){
  // not the album title. We therefore combine a broad album search with
  // title-focused searches for the last words of the query, then rank results.
  const clean=q.trim();
- const words=clean.split(/\\s+/).filter(Boolean);
+ const words=clean.split(/\s+/).filter(Boolean);
  const candidates=[];
  const urls=[
    "https://itunes.apple.com/search?term="+encodeURIComponent(clean)+"&entity=album&country=it&limit=50",
